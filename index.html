@@ -16,14 +16,6 @@
             margin: 0 auto;
             padding: 20px;
         }
-        .calendar {
-            margin-bottom: 20px;
-        }
-        iframe {
-            width: 100%;
-            height: 600px;
-            border: 0;
-        }
         form {
             background-color: #f9f9f9;
             padding: 20px;
@@ -55,14 +47,22 @@
         button:hover {
             background-color: #45a049;
         }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #ccc;
+        }
+        #booking-list th {
+            background-color: #f4f4f4;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="calendar">
-            <h2>Kalender</h2>
-            <iframe src="https://calendar.google.com/calendar/embed?src=917c67a3125b10aef9a0f2d7fedb53b1b6854e6b29ece850164c322821e98520%40group.calendar.google.com&ctz=Europe/Stockholm" style="border: 0"></iframe>
-        </div>
         <form id="booking-form">
             <h2>Boka</h2>
             <label for="name">Namn:</label>
@@ -73,12 +73,72 @@
             <input type="date" id="end-date" name="end-date" required>
             <button type="submit">Boka</button>
         </form>
-        <form id="cancel-form">
-            <h2>Avboka</h2>
-            <label for="cancel-id">Boknings-ID eller Namn:</label>
-            <input type="text" id="cancel-id" name="cancel-id" required>
-            <button type="submit">Avboka</button>
-        </form>
+        <h2>Aktuella Bokningar</h2>
+        <table id="booking-list">
+            <thead>
+                <tr>
+                    <th>Namn</th>
+                    <th>Startdatum</th>
+                    <th>Slutdatum</th>
+                    <th>Åtgärder</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Bokningar kommer här -->
+            </tbody>
+        </table>
     </div>
+    <script>
+        function refreshBookings() {
+            google.script.run
+                .withSuccessHandler(function(bookings) {
+                    var tbody = document.getElementById('booking-list').getElementsByTagName('tbody')[0];
+                    tbody.innerHTML = '';
+                    bookings.forEach(function(booking) {
+                        var row = tbody.insertRow();
+                        row.insertCell(0).innerText = booking.title;
+                        row.insertCell(1).innerText = new Date(booking.start).toLocaleString();
+                        row.insertCell(2).innerText = new Date(booking.end).toLocaleString();
+                        var deleteBtn = document.createElement('button');
+                        deleteBtn.innerText = "Radera";
+                        deleteBtn.onclick = function() {
+                            google.script.run
+                                .withSuccessHandler(function(response) {
+                                    alert(response);
+                                    refreshBookings();
+                                })
+                                .withFailureHandler(function(error) {
+                                    alert('Fel vid radering: ' + error.message);
+                                })
+                                .deleteBooking(booking.id);
+                        };
+                        row.insertCell(3).appendChild(deleteBtn);
+                    });
+                })
+                .withFailureHandler(function(error) {
+                    console.error('Error:', error);
+                })
+                .listBookings();
+        }
+
+        document.getElementById('booking-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            var name = document.getElementById('name').value;
+            var startDate = document.getElementById('start-date').value;
+            var endDate = document.getElementById('end-date').value;
+            google.script.run
+                .withSuccessHandler(function(response) {
+                    alert('Bokning skapad med ID: ' + response);
+                    refreshBookings();
+                })
+                .withFailureHandler(function(error) {
+                    alert('Fel vid skapande av bokning: ' + error.message);
+                })
+                .addBooking(name, startDate, endDate);
+        });
+
+        // Ladda befintliga bokningar när sidan laddas
+        window.onload = refreshBookings;
+    </script>
 </body>
 </html>
